@@ -36,18 +36,16 @@ logger = logging.getLogger(__name__)
 
 def check_tokens() -> bool:
     """Проверяет доступность переменных окружения."""
+    tokens = True
     required_tokens = [PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]
-    stop_reason = ''
     for token in required_tokens:
         if not token:
-            stop_reason += f'Токен {token} отсутсвует'
             logger.critical(f'Отсутствует переменная окружения: {token}')
-    if stop_reason:
-        logger.critical(stop_reason)
-        sys.exit(stop_reason)
+            tokens = False
+    return tokens
 
 
-def send_message(bot: TeleBot, message: str) -> bool:
+def send_message(bot: TeleBot, message: str) -> None:
     """Отправляет сообщение в Telegram-чат."""
     try:
         logger.debug('Начало отправки сообщения')
@@ -57,17 +55,14 @@ def send_message(bot: TeleBot, message: str) -> bool:
         RequestException,
     ) as error:
         logger.error(f'Ошибка при отправке сообщения: {error}')
-        return False
     else:
         logger.debug('Сообщение отправлено успешно')
-        return True
 
 
 def get_api_answer(timestamp: int) -> dict:
     """Делает запрос к единственному эндпоинту API-сервиса."""
     params = {'from_date': timestamp}
     try:
-        logger.debug('Начало запроса к API')
         response = requests.get(ENDPOINT, headers=HEADERS, params=params)
         if response.status_code != HTTPStatus.OK:
             raise InvalidResponseError(
@@ -109,28 +104,29 @@ def parse_status(homework: dict) -> str:
 
 def main():
     """Основная логика работы бота."""
-    current_error = ''
+    if not check_tokens():
+        sys.exit('Отсутсвуют токены')
+    last_message = ''
     bot = TeleBot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
-    check_tokens()
     while True:
         try:
             response = get_api_answer(timestamp)
             homeworks = check_response(response)
-            if homeworks:
-                status_message = parse_status(homeworks[0])
-                message_sent = send_message(bot, status_message)
-                if message_sent:
-                    timestamp = response.get('current_date')
-                    current_error = ''
-            else:
+            if not homeworks:
                 logger.debug('Нет новых статусов')
+                continue
+            status_message = parse_status(homeworks[0])
+            if status_message != last_message:
+                if send_message(bot, status_message):
+                    last_message = status_message
+                    timestamp = response.get('current_date', timestamp)
         except Exception as error:
-            if current_error != error:
-                message = f'Сбой в работе программы: {error}'
-                logger.error(message)
-                send_message(bot, message)
-                current_error = error
+            error_message = f'Сбой в работе программы: {error}'
+            if last_message != error_message:
+                logger.error(error_message)
+                send_message(bot, error_message)
+                last_message = error_message
         finally:
             time.sleep(RETRY_PERIOD)
 
