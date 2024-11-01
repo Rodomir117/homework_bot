@@ -113,19 +113,14 @@ def main():
         try:
             response = get_api_answer(timestamp)
             homeworks = check_response(response)
-            if not homeworks:
-                logger.debug('Нет новых статусов')
-                continue
             status_message = parse_status(homeworks[0])
-            if status_message != last_message:
-                if send_message(bot, status_message):
-                    last_message = status_message
-                    timestamp = response.get('current_date', timestamp)
+            send_message(bot, status_message)
+        except IndexError:
+            logger.debug('Нет новых статусов')
         except Exception as error:
             error_message = f'Сбой в работе программы: {error}'
             if last_message != error_message:
                 logger.error(error_message)
-                send_message(bot, error_message)
                 last_message = error_message
         finally:
             time.sleep(RETRY_PERIOD)
