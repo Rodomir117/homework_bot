@@ -105,7 +105,7 @@ def parse_status(homework: dict) -> str:
 def main():
     """Основная логика работы бота."""
     if not check_tokens():
-        sys.exit('Отсутсвуют токены')
+        sys.exit('Отсутствуют токены')
     last_message = ''
     bot = TeleBot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
@@ -113,14 +113,19 @@ def main():
         try:
             response = get_api_answer(timestamp)
             homeworks = check_response(response)
-            status_message = parse_status(homeworks[0])
-            send_message(bot, status_message)
-        except IndexError:
-            logger.debug('Нет новых статусов')
+            if not homeworks:
+                status_message = "Нет новых статусов"
+            else:
+                status_message = parse_status(homeworks[0])
+            if status_message != last_message:
+                send_message(bot, status_message)
+                last_message = status_message
+                timestamp = response.get('current_date', timestamp)
         except Exception as error:
             error_message = f'Сбой в работе программы: {error}'
+            logger.error(error_message)
             if last_message != error_message:
-                logger.error(error_message)
+                send_message(bot, error_message)
                 last_message = error_message
         finally:
             time.sleep(RETRY_PERIOD)
