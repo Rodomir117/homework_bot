@@ -119,14 +119,15 @@ def main():
                 status_message = parse_status(homeworks[0])
             if status_message != last_message:
                 send_message(bot, status_message)
-                last_message = status_message
-                timestamp = response.get('current_date', timestamp)
         except Exception as error:
             error_message = f'Сбой в работе программы: {error}'
             logger.error(error_message)
             if last_message != error_message:
                 send_message(bot, error_message)
                 last_message = error_message
+        else:
+            timestamp = response.get('current_date', timestamp)
+            last_message = status_message
         finally:
             time.sleep(RETRY_PERIOD)
 
