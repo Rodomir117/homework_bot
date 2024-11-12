@@ -114,7 +114,7 @@ def main():
             response = get_api_answer(timestamp)
             homeworks = check_response(response)
             if not homeworks:
-                status_message = "Нет новых статусов"
+                status_message = "Нет новых статусов."
             else:
                 status_message = parse_status(homeworks[0])
             if status_message != last_message:
